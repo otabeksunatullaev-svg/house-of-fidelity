@@ -484,10 +484,10 @@
   }
 
   /* ---------- Заявка: всплывающая форма ---------- */
-  // Адрес веб-приложения Google Apps Script, которое пишет заявки в таблицу (apps-script/leads). Пока он пустой,
-  // заявка никуда не отправляется (так решил заказчик, куда отправлять, решит позже): форма делает вид, что отправила,
-  // и показывает «Заявка у нас». Если адрес указан, а запрос не прошёл, под кнопкой появляется ошибка
-  var LEADS_ENDPOINT = "";
+  // Адрес веб-приложения Google Apps Script (apps-script/leads), которое пишет заявки в таблицу
+  // «Fidelity: заявки с сайта» (подключено 28.10.2026). Если адрес пустой, форма только показывает «Заявка у нас»
+  // и ничего не отправляет (так собирается версия для Artifact). Если запрос не прошёл, под кнопкой появляется ошибка
+  var LEADS_ENDPOINT = "https://script.google.com/macros/s/AKfycbwPLPB0e_UFg58zN42DNWq71WqOPpIgtJsV0_G8b17fid6tAG2Adm6Q4keNdqiLjaR3sw/exec";
   var lead = $("#lead");
   if (lead) (function () {
     var panel = $(".lead-panel", lead), form = $("#leadForm"), submit = $(".lead-submit", lead), submitText = $(".ls-text", lead);
