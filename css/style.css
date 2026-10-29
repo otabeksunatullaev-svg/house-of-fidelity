@@ -24,8 +24,12 @@ img{max-width:100%}
   --ease:cubic-bezier(.2,.8,.2,1);
   color-scheme:dark;
 }
-html{background:var(--void);overflow-anchor:none}
-body{background:var(--void);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;overflow-x:hidden;overflow-x:clip;-webkit-font-smoothing:antialiased}
+/* Защита от прокрутки вбок. overflow-x у html не даёт body передать свой overflow окну, поэтому clip остаётся
+   на самом body и обрезает всё, что шире экрана: прокручивать вбок нечего. Если clip стоял бы только на body,
+   окно получило бы hidden, а iPhone (особенно в окне на Тильде) при hidden всё равно даёт сдвинуть страницу пальцем.
+   clip, а не hidden: он не делает body прокручиваемым блоком, и sticky-закрепления работают */
+html{background:var(--void);overflow-anchor:none;overflow-x:hidden}
+body{background:var(--void);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;overflow-x:clip;-webkit-font-smoothing:antialiased}
 html.lenis,html.lenis body{height:auto}
 .lenis.lenis-smooth{scroll-behavior:auto!important}
 .lenis.lenis-stopped{overflow:hidden}
@@ -83,13 +87,17 @@ p{margin:0}
 }
 
 /* 1. HALLOWEEN PARTY: первый экран */
-.party{position:relative;min-height:100svh;display:flex;flex-direction:column;justify-content:center;overflow:hidden;isolation:isolate;background:radial-gradient(55% 70% at 82% 46%,rgba(150,12,8,.34),transparent 72%),radial-gradient(70% 55% at 0% 100%,rgba(177,219,0,.05),transparent 60%),var(--void)}
+/* Компьютер: колонка и глаз стоят в сетке шапки (ширина --wc, как у .wrap) с одинаковыми отступами --side слева и справа,
+   между ними промежуток --egap. Глаз около 62% высоты экрана, но не шире места справа от колонки.
+   Раньше глаз стоял на 79% ширины окна и на широких экранах выходил за правый край шапки (29.10.2026 заказчик: «слишком вправо»).
+   3D-глаз считает то же самое в layout() в main.js по настоящим размерам колонки */
+.party{--colw:min(42vw,600px,max(300px,calc((100svh - 330px) * 1.1)));--wc:calc(min(100vw,var(--max)) - 2 * var(--gutter));--egap:clamp(40px,6vw,110px);--eye-d:min(62svh,36vw,var(--wc) - var(--colw) - var(--egap));--side:max(0px,(var(--wc) - var(--colw) - var(--eye-d) - var(--egap)) / 2);--eye-x:calc((100vw + min(100vw,var(--max))) / 2 - var(--gutter) - var(--side) - var(--eye-d) / 2);position:relative;min-height:100svh;display:flex;flex-direction:column;justify-content:center;overflow:hidden;isolation:isolate;background:radial-gradient(55% 70% at var(--eye-x) 46%,rgba(150,12,8,.34),transparent 72%),radial-gradient(70% 55% at 0% 100%,rgba(177,219,0,.05),transparent 60%),var(--void)}
 .eye3d{position:absolute;inset:0;width:100%;height:100%;z-index:0;display:block;opacity:0;transition:opacity .9s ease}
 .eye-ready .eye3d{opacity:1}
 .eye3d.glitch{transform:translate(8px,-3px) skewX(-3deg);filter:hue-rotate(-80deg) saturate(1.7)}
 .party::after{content:"";position:absolute;inset:auto 0 0 0;height:28%;background:linear-gradient(to top,var(--void),transparent);z-index:2;pointer-events:none}
 /* Нарисованный CSS-глаз: запасной, только если WebGL недоступен (иначе у .party класс eye-gl). Стоит там же, где 3D-глаз */
-.eye-fallback{position:absolute;z-index:0;left:79%;top:47.5%;height:min(62%,36vw);width:auto;aspect-ratio:1;translate:-50% -50%;pointer-events:none;transition:opacity .9s ease;animation:eye-in 1.4s var(--ease) both}
+.eye-fallback{position:absolute;z-index:0;left:var(--eye-x);top:47.5%;height:var(--eye-d);width:auto;aspect-ratio:1;translate:-50% -50%;pointer-events:none;transition:opacity .9s ease;animation:eye-in 1.4s var(--ease) both}
 .eye-gl .eye-fallback{display:none}
 @keyframes eye-in{from{opacity:0;transform:scale(.88)}}
 .ef-ball{position:absolute;inset:0;border-radius:50%;overflow:hidden;transform-origin:center;transition:transform .09s ease-in;background:radial-gradient(circle at 50% 50%,#F4F0EA 0 38%,#E2D9CF 58%,#B9A79A 76%,#6E4E46 92%,#2A1412 100%);box-shadow:0 0 90px rgba(220,43,28,.22)}
@@ -100,7 +108,7 @@ p{margin:0}
 .party-inner{position:relative;z-index:3;display:flex;padding-block:96px 44px}
 /* Первый экран собран как постер пригласительного: одна колонка по центру. Ширина колонки привязана и к высоте экрана,
    чтобы дата и место помещались сразу. Тэглайн в две строки ровно по ширине колонки (единицы cqi от ширины колонки) */
-.party-col{--colw:min(42vw,600px,max(300px,calc((100svh - 330px) * 1.1)));display:flex;flex-direction:column;align-items:center;text-align:center;gap:clamp(12px,1.5vw,20px);width:min(100%,var(--colw));margin-left:max(0px,calc((60vw - var(--colw)) / 2 - var(--gutter)));container-type:inline-size}
+.party-col{display:flex;flex-direction:column;align-items:center;text-align:center;gap:clamp(12px,1.5vw,20px);width:min(100%,var(--colw));margin-left:var(--side);container-type:inline-size}
 .party-title{display:flex;flex-direction:column;align-items:center;width:100%}
 .party-wm{display:block;width:50%;height:auto;color:var(--ink);overflow:visible}
 .party-wm .d-pupil{color:var(--red-hi)}
@@ -130,6 +138,15 @@ p{margin:0}
 /* На телефонах зерно не мерцает и не выходит за экран: полноэкранная анимация и слой вчетверо больше экрана
    дорогие для мобильных видеокарт. Шапка без mix-blend-mode: смешивание с прокручиваемой страницей в каждом кадре */
 @media (hover:none){.fx::before{animation:none;inset:0}.site-header{mix-blend-mode:normal}}
+/* Без смешивания логотип и «Меню» налезали на текст под шапкой, а над лаймовым Projects чёрная шапка пропадала
+   над тёмной карточкой. Поэтому, как только страница прокручена (класс is-scrolled ставит JS), под шапкой
+   проявляется затемнение, над Projects лаймовое. На первом экране его нет, паутина у логотипа видна целиком */
+@media (hover:none){
+  .site-header::before{content:"";position:absolute;inset:0 0 -22px;z-index:-1;pointer-events:none;background:linear-gradient(var(--void) 62%,rgba(5,4,4,0));opacity:0;transition:opacity .3s}
+  .site-header.is-scrolled::before{opacity:1}
+  .site-header.on-acid::before{background:linear-gradient(var(--acid) 62%,rgba(177,219,0,0))}
+  .site-header.menu-open::before{opacity:0}
+}
 /* Блоки за экраном: бесконечные CSS-анимации на паузе (класс is-off ставит JS) */
 .party.is-off .fog i,.invite.is-off .bracelet::before,.invite.is-off .bracelet-ring,.sos.is-off .morse i{animation-play-state:paused}
 @keyframes fog{from{transform:translateX(-8%)}to{transform:translateX(8%)}}
@@ -222,8 +239,11 @@ p{margin:0}
 .fortune .display{font-size:clamp(46px,6vw,104px);margin-bottom:8px}
 .fear{font-size:clamp(17px,1.35vw,20px);line-height:1.6;color:var(--text);max-width:58ch;border-left:2px solid var(--red);padding-left:20px}
 .fear-quote{display:block;font-family:var(--f-body);font-weight:700;font-size:clamp(21px,1.9vw,30px);line-height:1.28;letter-spacing:-.01em;color:var(--ink);margin-bottom:12px}
-.loop{position:sticky;top:16vh;margin-inline:auto}
-.loop{max-width:520px}
+/* Ширина задана явно: без неё блок с auto-полями сжимается по содержимому, и svg рисуется в стандартные 300px.
+   Не выше 74vh, чтобы на низком экране прилипшее кольцо целиком помещалось.
+   overflow:hidden: повёрнутый квадрат svg с текстом углами выходил за экран на 55px, и страницу на телефоне
+   можно было сдвинуть вбок. Сам текст лежит внутри круга, обрезаются только пустые углы */
+.loop{position:sticky;top:16vh;margin-inline:auto;width:min(100%,74vh);max-width:540px;overflow:hidden}
 .loop-svg{display:block;width:100%;height:auto;overflow:visible}
 /* Текст по кругу в отдельном svg поверх кольца: его целиком поворачивает видеокарта */
 .loop-spin{position:absolute;left:0;top:0;will-change:transform}
@@ -233,7 +253,8 @@ p{margin:0}
 .loop-num{font-family:var(--f-display);font-weight:900;font-size:118px;fill:var(--red-hi)}
 @media (max-width:899px){
   .fortune-grid{grid-template-columns:1fr}
-  .loop{position:relative;order:2;max-width:380px;width:100%;margin-inline:auto}
+  /* top:auto: без прилипания top:16vh от компьютерной версии сдвигал кольцо вниз на 16% экрана, и низ наезжал на линию */
+  .loop{position:relative;top:auto;order:2;max-width:380px;width:100%;margin-inline:auto}
 }
 
 /* 2. ABOUT: We are Fidelity */
@@ -265,21 +286,45 @@ p{margin:0}
 .proj-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
 .proj{display:flex;flex-direction:column;background:var(--void);color:var(--ink);transition:transform .5s var(--ease)}
 .proj:hover{transform:translateY(-6px)}
-.proj-media{position:relative;aspect-ratio:16/10;max-width:100%;overflow:hidden;background:#0D1006;color:var(--acid);display:grid;place-items:center}
-.pm{position:absolute;display:block;height:auto;transition:transform .9s var(--ease)}
-.pm0{left:-12%;top:-22%;width:46%}
-.pm1{right:-8%;top:8%;width:30%}
-.pm2{left:30%;bottom:-28%;width:40%}
-.pm3{right:20%;bottom:14%;width:11%}
-.proj:hover .pm0{transform:translate(5%,6%) rotate(10deg)}
-.proj:hover .pm1{transform:translate(-6%,4%) rotate(-12deg)}
-.proj:hover .pm2{transform:translate(0,-6%)}
-.proj:hover .pm3{transform:translate(-30%,-20%) rotate(90deg)}
-.pm-label{position:relative;z-index:1;color:var(--ink);background:rgba(5,4,4,.7);padding:8px 12px}
-.proj-body{display:flex;flex-direction:column;gap:10px;padding:24px}
+.proj-media{position:relative;aspect-ratio:16/10;max-width:100%;overflow:hidden;background:#0D1006;color:var(--acid);container-type:size}
+/* Фигуры бренда по краям, обрезаны рамкой, пачки их не перекрывают */
+.pm{position:absolute;display:block;height:auto}
+.pm0{left:-14%;top:-24%;width:36%}
+.pm1{right:-9%;top:6%;width:26%}
+.pm2{left:3%;bottom:-27%;width:25%}
+.pm3{right:7%;bottom:11%;width:10%}
+/* Упаковки Malyuk до и после редизайна. Сцена одной пропорции стоит по центру блока, пачки в ней одного размера:
+   старая сзади левее и выше (чуть притемнена, чтобы светлая пачка не спорила с новой), новая спереди правее и ниже,
+   главный акцент, отбрасывает тень на старую. Поля вокруг сцены оставлены под сдвиг за курсором (скрипт в main.js).
+   Высота сцены не больше 92% ширины блока (cqw): когда текст справа выше, блок вытягивается и пачки иначе упирались в край */
+.pk-stage{position:absolute;inset:0;margin:auto;height:min(84%,92cqw);aspect-ratio:.987;z-index:1}
+.pk-stage::before{content:"";position:absolute;inset:-12%;z-index:-1;pointer-events:none;background:radial-gradient(closest-side at 62% 60%,rgba(177,219,0,.17),rgba(177,219,0,0))}
+.pk{position:absolute;display:block;width:56.2%;height:86.2%;object-fit:contain;max-width:none}
+.pk-old{left:0;top:0;filter:brightness(.8)}
+.pk-new{right:0;bottom:0;filter:drop-shadow(-12px 14px 22px rgba(0,0,0,.6))}
+.proj-media.is-live .pm,.proj-media.is-live .pk{will-change:transform}
+@media (max-width:719px){
+  .proj-media{aspect-ratio:5/4}
+  .pk-stage{height:min(86%,92cqw)}
+  .pm0{left:-18%;top:-18%;width:32%}
+  .pm1{right:-14%;top:10%;width:28%}
+  .pm2{left:-4%;bottom:-20%;width:26%}
+  .pm3{right:4%;bottom:9%;width:10%}
+}
+.proj-body{display:flex;flex-direction:column;gap:10px;padding:24px;container-type:inline-size}
 .proj-name{font-family:var(--f-display);font-weight:900;text-transform:uppercase;font-size:clamp(40px,4.2vw,70px);line-height:.9}
 .proj-body p{color:var(--text)}
 .proj-body .cap{color:var(--acid)}
+/* Цифры результата (прислал заказчик 29.10.2026): два столбца, в широкой колонке три */
+.proj-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 14px;margin:8px 0 6px;padding:16px 0 0;list-style:none;border-top:1px solid rgba(177,219,0,.22)}
+.ps{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ps-num{font-family:var(--f-display);font-weight:900;font-size:clamp(30px,11cqi,40px);line-height:.95;color:var(--acid);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ps-num i{font-style:normal;font-size:.62em}
+.ps-label{font-size:13px;line-height:1.3;color:var(--muted)}
+@container (min-width:380px){
+  .proj-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ps-num{font-size:clamp(30px,8.4cqi,42px)}
+}
 @media (max-width:719px){.proj-grid{grid-template-columns:1fr}}
 /* Если кейс один (BABU заказчик убрал 28.10.2026), на компьютере он во всю ширину: фигуры слева, текст справа внизу.
    Добавится второй кейс, и карточки сами вернутся в два столбца */

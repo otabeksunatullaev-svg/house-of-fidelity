@@ -84,11 +84,14 @@
   // Высота страницы кешируется: чтение scrollHeight на каждом событии прокрутки заставляло браузер
   // пересчитывать раскладку посреди кадра
   var bar = $("#progressBar");
-  var lastY = window.scrollY, maxScroll = 1;
+  var lastY = window.scrollY, maxScroll = 1, scrolled = null;
   function onScroll() {
     var p = Math.min(1, window.scrollY / maxScroll);
     bar.style.transform = "scaleX(" + p.toFixed(4) + ")";
     if (!lenis) { state.scrollVel = window.scrollY - lastY; lastY = window.scrollY; }
+    // Затемнение под шапкой на сенсорных экранах (style.css): класс меняется, только когда пересекли порог
+    var sc = window.scrollY > 24;
+    if (sc !== scrolled) { scrolled = sc; header.classList.toggle("is-scrolled", sc); }
   }
   function measureMax() { maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight); onScroll(); }
   window.addEventListener("scroll", onScroll, { passive: true });
@@ -278,7 +281,7 @@
 
   // На телефоне глаз стоит в одном ряду с логотипом FIDELITY, поэтому верх глаза берём из положения заголовка
   // (offsetTop не учитывает анимацию появления)
-  var partyTitle = $(".party-title");
+  var partyTitle = $(".party-title"), partyCol = $(".party-col");
   function placeEye() {
     if (!party || !partyTitle) return;
     if (innerWidth >= 900) { party.style.removeProperty("--eye-y"); return; }
@@ -333,7 +336,7 @@
     if (!setup()) return false;
 
     // Камера как была в three.js: угол обзора 30°, глаз в 6 единицах от неё.
-    // На компьютере глаз справа целиком (диаметр около 62% высоты экрана), на телефоне холст квадратный
+    // На компьютере глаз справа целиком (диаметр около 62% высоты экрана) в сетке шапки, на телефоне холст квадратный
     // справа от FIDELITY и глаз заполняет его. CSS-глаз .eye-fallback стоит в тех же координатах
     var TAN = Math.tan(15 * Math.PI / 180), aspect = 1, ex = 0, ey = 0, R = 1, px = 0.01, f2 = [1, 1];
     function layout() {
@@ -343,7 +346,16 @@
       aspect = W / H;
       var halfH = TAN * 6, halfW = halfH * aspect;
       if (innerWidth < 900) { R = Math.min(halfW, halfH) * 0.92; ex = 0; ey = 0; }
-      else { R = Math.min(halfH * 0.62, halfW * 0.36); ex = halfW * 0.58; ey = 0.08; }
+      else {
+        // Как в CSS (.party): правый отступ глаза от края сетки равен левому отступу колонки, между ними промежуток.
+        // offsetLeft не учитывает анимацию появления
+        var inner = partyCol.parentNode, cs = getComputedStyle(inner);
+        var side = partyCol.offsetLeft - parseFloat(cs.paddingLeft);
+        var right = inner.offsetLeft + inner.clientWidth - parseFloat(cs.paddingRight) - side;
+        var gap = Math.min(110, Math.max(40, innerWidth * 0.06));
+        var d = Math.min(H * 0.62, W * 0.36, right - inner.offsetLeft - partyCol.offsetLeft - partyCol.offsetWidth - gap);
+        R = d / H * halfH; ex = ((right - d / 2) / W * 2 - 1) * halfW; ey = 0.08;
+      }
       px = 2 * TAN / canvas.height * Math.sqrt(ex * ex + ey * ey + 36);
       f2 = [1 / (TAN * aspect), 1 / TAN];
       resetRects();
@@ -676,6 +688,57 @@
     });
   }
 
+  /* ---------- Projects: упаковки Malyuk до и после тянутся за курсором ---------- */
+  // Пока курсор внутри левой части карточки, пачки сдвигаются к нему и поворачиваются лицом к нему, передняя сильнее
+  // задней, фигуры бренда почти стоят: так между слоями видна глубина. data-move: сдвиг по x и y в px, когда курсор
+  // у края блока, и наклон по x и y в градусах. Курсор ушёл, и всё плавно возвращается на место и замирает.
+  // На сенсорных экранах курсора нет, поэтому пачки ведёт прокрутка: пока карточка проходит экран, передняя пачка
+  // обгоняет заднюю и наклон меняется вместе с ней, а сами пачки медленно парят в разных фазах, чтобы композиция
+  // жила и без прокрутки (заказчик: «анимации же нет»). Только transform, пишется только изменившееся значение,
+  // считается только на экране. При reduced motion композиция статична
+  var packs = watch($("#malyukPacks"));
+  if (packs && !reduce) {
+    var mouse = fine && window.matchMedia("(hover: hover)").matches;
+    var layers = $$("[data-move]", packs).map(function (el, i) {
+      var m = el.getAttribute("data-move").split(",").map(Number);
+      return { el: el, i: i, x: m[0], y: m[1], rx: m[2] || 0, ry: m[3] || 0, v: "" };
+    });
+    var inPacks = false, pkx = 0, pky = 0;
+    packs.classList.add("is-live");
+    if (mouse) {
+      packs.addEventListener("pointerenter", function () { inPacks = true; });
+      packs.addEventListener("pointerleave", function () { inPacks = false; });
+    }
+    eyes.push(function (now, dt) {
+      if (!onScreen(packs)) return;
+      var r = rectOf(packs), tx = 0, ty = 0, t = now / 1000;
+      if (mouse) {
+        // Проверка по рамке нужна и при прокрутке колесом: курсор стоит, а блок уезжает из-под него
+        if (inPacks && pointer.x >= r.left && pointer.x <= r.left + r.width && pointer.y >= r.top && pointer.y <= r.bottom) {
+          tx = (pointer.x - r.left) / r.width * 2 - 1;
+          ty = (pointer.y - r.top) / r.height * 2 - 1;
+        }
+        if (tx === pkx && ty === pky) return;
+      } else {
+        // -1, когда середина карточки у верха экрана, 1 у низа: при прокрутке вниз пачки уходят вверх быстрее рамки
+        ty = Math.max(-1, Math.min(1, (r.top + r.height / 2) / window.innerHeight * 2 - 1));
+      }
+      var k = 1 - Math.pow(0.02, dt);
+      pkx += (tx - pkx) * k; pky += (ty - pky) * k;
+      if (Math.abs(tx - pkx) < 0.001 && Math.abs(ty - pky) < 0.001) { pkx = tx; pky = ty; }
+      // В узкой карточке сдвиг меньше, чтобы пачки не упирались в рамку
+      var s = mouse ? Math.min(1, r.width / 640) : Math.min(1, r.width / 480);
+      layers.forEach(function (l) {
+        var fy = 0, fr = 0;
+        if (!mouse && l.rx) { fy = Math.sin(t * 1.1 + l.i * 2.3) * 3.5; fr = Math.sin(t * 0.7 + l.i * 1.9) * 1.2; }
+        var v = "translate3d(" + (pkx * l.x * s).toFixed(2) + "px," + (pky * l.y * s + fy).toFixed(2) + "px,0)";
+        // На телефоне наклон с другим знаком: карточка внизу экрана видна чуть сверху, вверху чуть снизу
+        if (l.rx) v = "perspective(900px) " + v + " rotateX(" + ((mouse ? -pky : pky) * l.rx).toFixed(2) + "deg) rotateY(" + (pkx * l.ry + fr).toFixed(2) + "deg)";
+        if (v !== l.v) { l.v = v; l.el.style.transform = v; }
+      });
+    });
+  }
+
   /* ---------- Финальный логотип: буква наклоняется под мышью, соседи раздвигаются ---------- */
   // Наклон вокруг центра: верх уходит вправо, низ влево на половину высоты × tg 6°. Соседи справа сдвигаются вправо,
   // слева влево, на сколько не хватает пробела, поэтому буквы не заходят друг на друга.
@@ -854,6 +917,18 @@
 
     $$("[data-reveal]").forEach(function (el, i) {
       gsap.from(el, { y: 50, opacity: 0.2, duration: 1, ease: "power3.out", delay: (i % 3) * 0.08, scrollTrigger: { trigger: el, start: "top 90%", once: true } });
+    });
+    // Projects: цифры результата отсчитываются от нуля, когда появляются (в разметке конечные значения)
+    $$(".ps-num").forEach(function (el, i) {
+      var t = el.firstChild, m = /^(\D*)(\d+)(.*)$/.exec(t.nodeValue);
+      if (!m) return;
+      var n = { v: 0 };
+      t.nodeValue = m[1] + "0" + m[3];
+      gsap.to(n, {
+        v: +m[2], duration: 1.6, delay: (i % 3) * 0.1, ease: "power2.out",
+        scrollTrigger: { trigger: ".proj-stats", start: "top 90%", once: true },
+        onUpdate: function () { t.nodeValue = m[1] + Math.round(n.v) + m[3]; }
+      });
     });
     $$(".display, .weare-title").forEach(function (el) {
       if (el.closest(".weare-title") && el.classList.contains("display")) return;
